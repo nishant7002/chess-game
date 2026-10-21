@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Play, Settings2, ShieldAlert, Sparkles, User, Bot } from 'lucide-react';
+import { RotateCcw, Play, Settings2 } from 'lucide-react';
 
 export const GameControls = ({
   humanColor,
@@ -12,7 +12,7 @@ export const GameControls = ({
   onRestartGame,
   isGameInProgress,
   isThinking,
-  gameStatus
+  _gameStatus
 }) => {
   return (
     <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-lg space-y-4">

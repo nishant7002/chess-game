@@ -9,10 +9,8 @@ import {
   Trophy,
   AlertTriangle,
   RefreshCw,
-  Cpu,
   User,
-  Activity,
-  CheckCircle2,
+  Bot,
   Wifi,
   WifiOff
 } from 'lucide-react';
@@ -58,6 +56,7 @@ export default function App() {
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const connectRef = useRef(null);
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
@@ -99,7 +98,10 @@ export default function App() {
       socket.onclose = () => {
         setIsConnected(false);
         // Attempt reconnection after 2 seconds
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 2000);
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectRef.current?.();
+        }, 2000);
       };
 
       socket.onerror = (err) => {
@@ -112,6 +114,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    connectRef.current = connectWebSocket;
     connectWebSocket();
     return () => {
       if (wsRef.current) wsRef.current.close();

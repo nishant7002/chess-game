@@ -4,7 +4,7 @@ import { PieceIcon } from './ChessPieces';
 // Parses FEN string into an 8x8 board array: board[rankIndex][fileIndex]
 // rankIndex 0 is rank 8, rankIndex 7 is rank 1
 // fileIndex 0 is file a, fileIndex 7 is file h
-export const parseFen = (fen) => {
+const parseFen = (fen) => {
   if (!fen) return Array(8).fill(null).map(() => Array(8).fill(null));
   const boardPart = fen.split(' ')[0];
   const rows = boardPart.split('/');
