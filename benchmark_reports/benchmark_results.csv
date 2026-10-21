@@ -1,0 +1,45 @@
+position,algorithm,depth,runtime_ms,nodes_generated,nodes_expanded,leaf_evaluations,pruned_branches,best_move,eval_score
+Opening,Random,0,0.13,20,1,1,0,b1a3,-30
+Opening,Greedy,1,1.98,20,1,20,0,g1f3,10
+Opening,Minimax,1,2.52,20,1,20,0,g1f3,10
+Opening,Alpha-Beta,1,2.14,20,1,20,0,g1f3,10
+Opening,Alpha-Beta (Ordered),1,2.26,20,1,20,0,g1f3,10
+Opening,Minimax,2,49.01,420,21,400,0,e2e4,50
+Opening,Alpha-Beta,2,10.33,420,21,81,17,e2e4,50
+Opening,Alpha-Beta (Ordered),2,12.27,420,21,58,18,e2e4,50
+Opening,Minimax,3,1157.81,9322,421,8902,0,g1f3,4
+Opening,Alpha-Beta,3,112.25,2128,99,801,65,g1f3,4
+Opening,Alpha-Beta (Ordered),3,75.02,1327,62,508,38,g1f3,4
+Middlegame_Tactical,Random,0,0.08,38,1,1,0,c2c3,-122
+Middlegame_Tactical,Greedy,1,4.54,38,1,38,0,c4f7,64
+Middlegame_Tactical,Minimax,1,5.29,38,1,38,0,c4f7,64
+Middlegame_Tactical,Alpha-Beta,1,5.9,38,1,38,0,c4f7,64
+Middlegame_Tactical,Alpha-Beta (Ordered),1,5.99,38,1,38,0,c4f7,64
+Middlegame_Tactical,Minimax,2,187.76,1367,39,1329,0,d3d4,-58
+Middlegame_Tactical,Alpha-Beta,2,102.65,1367,39,707,32,d3d4,-58
+Middlegame_Tactical,Alpha-Beta (Ordered),2,43.16,1367,39,180,33,d3d4,-58
+Middlegame_Tactical,Minimax,3,7089.63,49745,1368,48378,0,b1c3,24
+Middlegame_Tactical,Alpha-Beta,3,1060.66,29016,799,6867,658,b1c3,24
+Middlegame_Tactical,Alpha-Beta (Ordered),3,440.69,6292,213,2487,106,b1c3,24
+Middlegame_Positional,Random,0,0.07,44,1,1,0,b2b3,-57
+Middlegame_Positional,Greedy,1,5.89,44,1,44,0,d4c6,286
+Middlegame_Positional,Minimax,1,5.32,44,1,44,0,d4c6,286
+Middlegame_Positional,Alpha-Beta,1,5.99,44,1,44,0,d4c6,286
+Middlegame_Positional,Alpha-Beta (Ordered),1,7.06,44,1,44,0,d4c6,286
+Middlegame_Positional,Minimax,2,209.31,1610,45,1566,0,d4c6,130
+Middlegame_Positional,Alpha-Beta,2,24.16,1610,45,135,42,d4c6,130
+Middlegame_Positional,Alpha-Beta (Ordered),2,27.18,1610,45,75,43,d4c6,130
+Middlegame_Positional,Minimax,3,9478.22,69561,1611,67951,0,d4c6,84
+Middlegame_Positional,Alpha-Beta,3,1819.51,38257,886,13231,608,d4c6,84
+Middlegame_Positional,Alpha-Beta (Ordered),3,358.07,5082,125,1872,74,d4c6,84
+Endgame,Random,0,0.07,15,1,1,0,e2f2,490
+Endgame,Greedy,1,1.07,15,1,15,0,e3e4,500
+Endgame,Minimax,1,1.26,15,1,15,0,e3e4,500
+Endgame,Alpha-Beta,1,1.25,15,1,15,0,e3e4,500
+Endgame,Alpha-Beta (Ordered),1,1.34,15,1,15,0,e3d4,500
+Endgame,Minimax,2,10.6,112,16,97,0,e3d4,548
+Endgame,Alpha-Beta,2,7.66,112,16,60,12,e3d4,548
+Endgame,Alpha-Beta (Ordered),2,4.69,112,16,19,14,e3d4,548
+Endgame,Minimax,3,170.5,2021,113,1909,0,e3d4,510
+Endgame,Alpha-Beta,3,75.69,1321,76,951,31,e3d4,510
+Endgame,Alpha-Beta (Ordered),3,27.12,468,35,294,17,e3d4,510
