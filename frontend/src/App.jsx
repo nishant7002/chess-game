@@ -12,7 +12,10 @@ import {
   User,
   Bot,
   Wifi,
-  WifiOff
+  WifiOff,
+  Eye,
+  RotateCcw,
+  Play
 } from 'lucide-react';
 
 const BACKEND_URL = import.meta.env.VITE_WS_BACKEND_URL;
@@ -61,6 +64,10 @@ export default function App() {
   const [lastAIMetrics, setLastAIMetrics] = useState(null);
   const [lastEval, setLastEval] = useState(0);
 
+  // Game Over Modal visibility & delay timer
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const gameOverTimeoutRef = useRef(null);
+
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const connectRef = useRef(null);
@@ -86,6 +93,10 @@ export default function App() {
             if (data.state.human_color) setHumanColor(data.state.human_color);
             if (data.state.algorithm) setAlgorithm(data.state.algorithm);
             if (data.state.depth) setDepth(data.state.depth);
+            if (data.state.move_history && data.state.move_history.length === 0) {
+              setLastAIMetrics(null);
+              setLastEval(0);
+            }
           } else if (data.type === 'ai_thinking') {
             setIsThinking(data.thinking);
           } else if (data.type === 'ai_move') {
@@ -129,6 +140,22 @@ export default function App() {
     };
   }, [connectWebSocket]);
 
+  // Monitor Game Over: allow user to inspect the decisive move on the board for 1.8s
+  useEffect(() => {
+    if (gameState.is_game_over) {
+      if (gameOverTimeoutRef.current) clearTimeout(gameOverTimeoutRef.current);
+      gameOverTimeoutRef.current = setTimeout(() => {
+        setShowGameOverModal(true);
+      }, 1800);
+    } else {
+      setShowGameOverModal(false);
+      if (gameOverTimeoutRef.current) clearTimeout(gameOverTimeoutRef.current);
+    }
+    return () => {
+      if (gameOverTimeoutRef.current) clearTimeout(gameOverTimeoutRef.current);
+    };
+  }, [gameState.is_game_over]);
+
   const sendWsMessage = (msg) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
@@ -171,12 +198,41 @@ export default function App() {
     });
   };
 
-  // Handle Starting the Game after options have been chosen
-  const handleStartGame = () => {
-    setIsGameStarted(true);
+  // Seamless state reset helper for both optimistic UI and server sync
+  const resetToFreshGameState = (isStarted = true) => {
+    const isHumanWhite = humanColor === 'white';
+    setIsGameStarted(isStarted);
+    setShowGameOverModal(false);
+    if (gameOverTimeoutRef.current) clearTimeout(gameOverTimeoutRef.current);
     setSelectedSquare(null);
     setLegalDestinations([]);
+    setPendingPromotion(null);
     setErrorMessage(null);
+    setLastAIMetrics(null);
+    setLastEval(0);
+    // If game is started and human is Black, AI (White) begins calculating immediately
+    setIsThinking(isStarted && !isHumanWhite);
+
+    setGameState({
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      turn: 'white',
+      human_color: humanColor,
+      ai_color: isHumanWhite ? 'black' : 'white',
+      is_human_turn: isStarted ? isHumanWhite : isHumanWhite,
+      is_game_over: false,
+      in_check: false,
+      result: isStarted ? 'Game in progress' : 'Choose options and click Start Game',
+      winner: null,
+      last_move: null,
+      move_history: [],
+      captured_pieces: { white: [], black: [] },
+      material: { white: 39, black: 39, diff: 0 }
+    });
+  };
+
+  // Handle Starting the Game after options have been chosen
+  const handleStartGame = () => {
+    resetToFreshGameState(true);
     sendWsMessage({
       type: 'start_game',
       human_color: humanColor,
@@ -187,10 +243,7 @@ export default function App() {
 
   // Handle Restarting Game with current options
   const handleRestartGame = () => {
-    setIsGameStarted(true);
-    setSelectedSquare(null);
-    setLegalDestinations([]);
-    setErrorMessage(null);
+    resetToFreshGameState(true);
     sendWsMessage({
       type: 'start_game',
       human_color: humanColor,
@@ -201,25 +254,7 @@ export default function App() {
 
   // Handle New Game (returns to setup mode so user can re-choose options)
   const handleNewGame = () => {
-    setIsGameStarted(false);
-    setSelectedSquare(null);
-    setLegalDestinations([]);
-    setErrorMessage(null);
-    setGameState({
-      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-      turn: 'white',
-      human_color: humanColor,
-      ai_color: humanColor === 'white' ? 'black' : 'white',
-      is_human_turn: humanColor === 'white',
-      is_game_over: false,
-      in_check: false,
-      result: 'Choose options and click Start Game',
-      winner: null,
-      last_move: null,
-      move_history: [],
-      captured_pieces: { white: [], black: [] },
-      material: { white: 39, black: 39, diff: 0 }
-    });
+    resetToFreshGameState(false);
   };
 
   // Handle Square Selection and Moves
@@ -294,6 +329,20 @@ export default function App() {
   const isHumanTurn = gameState.is_human_turn;
   const isGameOver = gameState.is_game_over;
 
+  const lastMoveRecord =
+    gameState.move_history && gameState.move_history.length > 0
+      ? gameState.move_history[gameState.move_history.length - 1]
+      : (gameState.last_move
+          ? {
+              san: gameState.last_move.san || gameState.last_move.uci,
+              uci: gameState.last_move.uci,
+              from: gameState.last_move.from,
+              to: gameState.last_move.to,
+              turn: gameState.turn === 'white' ? 'black' : 'white',
+              captured: null
+            }
+          : null);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Top Navigation Bar */}
@@ -346,8 +395,74 @@ export default function App() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 w-full flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Chess Board & In-game HUD */}
-          <div className="lg:col-span-7 flex flex-col items-center space-y-4">
+          {/* 1. Pre-Game Settings (Top on Mobile, Left on Desktop) */}
+          <div className="order-1 lg:col-span-5 lg:col-start-1 lg:row-start-1 w-full">
+            <GameControls
+              humanColor={humanColor}
+              onColorChange={handleColorChange}
+              algorithm={algorithm}
+              onAlgorithmChange={handleAlgorithmChange}
+              depth={depth}
+              onDepthChange={handleDepthChange}
+              isGameStarted={isGameStarted}
+              onStartGame={handleStartGame}
+              onNewGame={handleNewGame}
+              onRestartGame={handleRestartGame}
+              isThinking={isThinking}
+              _gameStatus={gameState.result}
+            />
+          </div>
+
+          {/* 2. Chess Board & In-game HUD (After Settings on Mobile, Right side on Desktop) */}
+          <div className="order-2 lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:row-span-2 flex flex-col items-center space-y-4 w-full">
+            {/* Decisive End-Game Floating Review Banner (Visible when reviewing board after game over) */}
+            {isGameOver && !showGameOverModal && (
+              <div className="w-full max-w-[560px] bg-slate-900/95 border-2 border-emerald-500/60 rounded-xl p-3 shadow-xl flex items-center justify-between gap-3 animate-fade-in">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center shrink-0">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{gameState.result}</p>
+                    {lastMoveRecord && (
+                      <p className="text-[11px] text-slate-300 font-mono">
+                        Final Move:{' '}
+                        <span className="text-emerald-400 font-bold">{lastMoveRecord.san || lastMoveRecord.uci}</span>
+                        {' '}({lastMoveRecord.from} → {lastMoveRecord.to})
+                        {' '}• <span className="text-slate-400">{lastMoveRecord.turn === gameState.human_color ? 'You' : 'AI'}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowGameOverModal(true)}
+                    className="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Summary</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRestartGame}
+                    className="px-2.5 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-300" />
+                    <span>Restart</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNewGame}
+                    className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-sm transition-all flex items-center gap-1"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    <span>New Game</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Top Player Status: AI */}
             <div className="w-full max-w-[560px] flex items-center justify-between px-3 py-2 bg-slate-900/70 border border-slate-800/80 rounded-xl shadow-sm">
               <div className="flex items-center gap-2.5">
@@ -433,24 +548,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Column: Controls, Move History, Academic Telemetry */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* Game Controls */}
-            <GameControls
-              humanColor={humanColor}
-              onColorChange={handleColorChange}
-              algorithm={algorithm}
-              onAlgorithmChange={handleAlgorithmChange}
-              depth={depth}
-              onDepthChange={handleDepthChange}
-              isGameStarted={isGameStarted}
-              onStartGame={handleStartGame}
-              onNewGame={handleNewGame}
-              onRestartGame={handleRestartGame}
-              isThinking={isThinking}
-              _gameStatus={gameState.result}
-            />
-
+          {/* 3. Move History & Academic Search Telemetry (Below Board on Mobile, Left Column on Desktop) */}
+          <div className="order-3 lg:col-span-5 lg:col-start-1 lg:row-start-2 space-y-4 w-full">
             {/* Move History */}
             <MoveHistory moves={gameState.move_history} />
 
@@ -471,10 +570,16 @@ export default function App() {
         onSelect={handlePromotionSelect}
       />
 
-      {/* Game Over Banner / Dialog */}
-      {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-slate-800 border-2 border-emerald-500/50 p-6 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-4">
+      {/* Game Over Banner / Dialog with Review Board option and Decisive Move */}
+      {showGameOverModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setShowGameOverModal(false)}
+        >
+          <div
+            className="bg-slate-800 border-2 border-emerald-500/50 p-6 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-700/60 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950">
               <Trophy className="w-8 h-8" />
             </div>
@@ -482,17 +587,66 @@ export default function App() {
             <h2 className="text-2xl font-bold text-white tracking-tight">Game Over</h2>
             <p className="text-base font-semibold text-emerald-400">{gameState.result}</p>
 
-            <div className="py-2 text-xs text-slate-400 bg-slate-900/60 rounded-lg border border-slate-700">
-              Total Moves Played: {gameState.move_history.length}
+            {/* Decisive Last Move Card */}
+            {lastMoveRecord && (
+              <div className="bg-slate-900/90 border border-slate-700/90 rounded-xl p-3 text-left space-y-1.5">
+                <div className="text-[11px] text-slate-400 uppercase font-mono tracking-wider flex items-center justify-between">
+                  <span>Decisive Final Move</span>
+                  <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
+                    lastMoveRecord.turn === gameState.human_color
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                      : 'bg-cyan-950 text-cyan-400 border border-cyan-800'
+                  }`}>
+                    {lastMoveRecord.turn === gameState.human_color ? 'You (Human)' : 'AI Engine'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-mono font-bold text-white bg-slate-800 px-3 py-1 rounded-lg border border-slate-700 shadow-inner">
+                      {lastMoveRecord.san || lastMoveRecord.uci}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">
+                      ({lastMoveRecord.from} → {lastMoveRecord.to})
+                    </span>
+                  </div>
+                  {lastMoveRecord.captured && (
+                    <span className="text-xs text-red-300 bg-red-950/80 border border-red-800/80 px-2.5 py-1 rounded font-medium">
+                      Captured {lastMoveRecord.captured.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="py-2 text-xs text-slate-400 bg-slate-900/60 rounded-lg border border-slate-700 flex justify-around">
+              <span>Total Moves: <strong className="text-white font-mono">{gameState.move_history.length}</strong></span>
+              <span>Final Turn: <strong className="text-white font-mono capitalize">{gameState.turn}</strong></span>
             </div>
 
-            <div className="flex gap-3 justify-center pt-2">
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setShowGameOverModal(false)}
+                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-xl border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Review Board</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRestartGame}
+                className="px-3.5 py-2 bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restart Game</span>
+              </button>
               <button
                 type="button"
                 onClick={handleNewGame}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-md transition-all"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
               >
-                Play Again
+                <Play className="w-3.5 h-3.5" />
+                <span>New Game</span>
               </button>
             </div>
           </div>

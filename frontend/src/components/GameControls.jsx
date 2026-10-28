@@ -74,13 +74,13 @@ export const GameControls = ({
           value={algorithm}
           disabled={isGameStarted || isThinking}
           onChange={(e) => onAlgorithmChange(e.target.value)}
-          className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         >
-          <option value="alpha_beta_ordered">Alpha-Beta Pruning + Move Ordering (Recommended)</option>
+          <option value="alpha_beta_ordered">Alpha-Beta + Move Ordering (Recommended)</option>
           <option value="alpha_beta">Alpha-Beta Pruning (Canonical)</option>
-          <option value="minimax">Pure Minimax (Depth-Limited, No Pruning)</option>
-          <option value="greedy">Greedy Agent (1-ply Heuristic Baseline)</option>
-          <option value="random">Random Legal Move (Stochastic Baseline)</option>
+          <option value="minimax">Pure Minimax (Depth-Limited)</option>
+          <option value="greedy">Greedy Agent (1-ply Baseline)</option>
+          <option value="random">Random Legal Move (Baseline)</option>
         </select>
       </div>
 
