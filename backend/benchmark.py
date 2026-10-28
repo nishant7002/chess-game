@@ -1,6 +1,6 @@
 """
 backend/benchmark.py
-Comprehensive Experimental Benchmarking Suite for FAI Chess AI.
+Comprehensive Experimental Benchmarking Suite for Chess AI Engine.
 Compares Minimax, Alpha-Beta Pruning, Move Ordering, and Baselines across
 controlled chess positions (Opening, Tactical Middlegame, Positional Middlegame, Endgame).
 Generates CSV results and high-resolution Matplotlib performance plots.
@@ -43,7 +43,7 @@ def run_benchmarks(depths: List[int] = [1, 2, 3], positions: Dict[str, str] = BE
     records: List[Dict[str, Any]] = []
 
     print("=" * 75)
-    print("STARTING FAI CHESS AI EXPERIMENTAL BENCHMARKS")
+    print("STARTING CHESS AI EXPERIMENTAL BENCHMARKS")
     print("=" * 75)
 
     for pos_name, fen in positions.items():

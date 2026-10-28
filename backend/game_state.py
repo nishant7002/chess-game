@@ -26,7 +26,7 @@ PIECE_VALUES = {
 }
 
 class GameState:
-    def __init__(self, human_color: str = "white", algorithm: str = "alpha_beta", depth: int = 3):
+    def __init__(self, human_color: str = "white", algorithm: str = "alpha_beta_ordered", depth: int = 3):
         self.board = chess.Board()
         self.human_color = human_color.lower()
         self.ai_color = "black" if self.human_color == "white" else "white"
@@ -35,9 +35,11 @@ class GameState:
         self.move_history: List[Dict[str, Any]] = []
         self.captured_pieces: Dict[str, List[str]] = {"white": [], "black": []}
         self.last_move: Optional[Dict[str, str]] = None
+        self.game_version: int = 1
 
     def reset(self, human_color: Optional[str] = None, algorithm: Optional[str] = None, depth: Optional[int] = None):
         """Resets the board for a new game session."""
+        self.game_version += 1
         self.board.reset()
         if human_color:
             self.human_color = human_color.lower()

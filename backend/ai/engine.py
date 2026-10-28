@@ -33,20 +33,23 @@ def compute_ai_move(board: chess.Board, algorithm: str = "alpha_beta", depth: in
             }
         }
 
-    # Clamp depth between 1 and 5 for stability
-    depth = max(1, min(depth, 5))
     algo_key = algorithm.lower().strip()
 
-    if algo_key == "random":
+    # Algorithm-specific safe depth clamping to prevent CPU exhaustion DoS
+    if algo_key == "minimax":
+        safe_depth = max(1, min(depth, 3))
+        return find_best_move_minimax(board, safe_depth)
+    elif algo_key == "random":
         return RandomAgent.select_move(board)
     elif algo_key == "greedy":
         return GreedyAgent.select_move(board)
-    elif algo_key == "minimax":
-        return find_best_move_minimax(board, depth)
     elif algo_key == "alpha_beta_ordered":
-        return find_best_move_alpha_beta(board, depth, use_move_ordering=True)
+        safe_depth = max(1, min(depth, 4))
+        return find_best_move_alpha_beta(board, safe_depth, use_move_ordering=True)
     elif algo_key == "alpha_beta":
-        return find_best_move_alpha_beta(board, depth, use_move_ordering=False)
+        safe_depth = max(1, min(depth, 4))
+        return find_best_move_alpha_beta(board, safe_depth, use_move_ordering=False)
     else:
         # Default fallback
-        return find_best_move_alpha_beta(board, depth, use_move_ordering=False)
+        safe_depth = max(1, min(depth, 4))
+        return find_best_move_alpha_beta(board, safe_depth, use_move_ordering=True)

@@ -1,22 +1,22 @@
 # Real-Time Human vs AI Chess Web Application
-### Foundations of Artificial Intelligence (FAI) Course Project
-**Adversarial Search with Depth-Limited Minimax, Alpha-Beta Pruning, and Positional Heuristics**
+### A Full-Stack Self-Learning Project in Adversarial Search & Heuristic Engine Design
+**Depth-Limited Minimax • Alpha-Beta Pruning • Move Ordering Heuristics • Real-Time WebSockets**
 
 ---
 
-## 1. Project Overview & Objectives
+## 1. Project Overview & Motivation
 
-This project is a full-stack, real-time chess web application developed for the **Foundations of Artificial Intelligence (FAI)** course. It pairs a human player against a custom, handcrafted Python AI agent.
+This project is a complete, full-stack adversarial chess web application developed as an **independent self-learning engineering project** into classical Artificial Intelligence, heuristic game playing, and real-time full-stack architectures. It pairs a human player against a custom, handcrafted Python AI engine.
 
-Unlike projects that rely on Stockfish, external chess engines, or hosted LLM APIs, **all search algorithms, pruning logic, heuristic evaluation formulas, and move ordering routines were designed and implemented from scratch**. The `python-chess` library is utilized strictly as an authoritative rule validator and board state representation.
+Unlike projects that rely on Stockfish, ready-made chess engines, or hosted LLM APIs, **all search algorithms, pruning heuristics, position evaluation mathematics, and move ordering routines were designed and implemented from scratch**. The `python-chess` library is utilized strictly for low-level board representation, legal move generation, and rule validation.
 
-### Key Objectives
-1. **Adversarial Search Implementation:** Construct depth-limited Minimax and optimize it with Alpha-Beta Pruning.
-2. **Mathematical Equivalence Verification:** Empirically verify that Alpha-Beta pruning produces identical minimax evaluation scores to unpruned search while pruning irrelevant subtrees.
-3. **Modular Positional Evaluation:** Design an evaluation function combining centipawn material balance, PeSTO Piece-Square Tables (PST) for midgame and endgame, mobility, and king safety.
-4. **Move Ordering Optimization:** Implement MVV-LVA (Most Valuable Victim - Least Valuable Attacker) heuristics to maximize Alpha-Beta cutoffs.
-5. **Real-Time Interactive Experience:** Deliver a reactive UI using React and Tailwind CSS connected via server-authoritative WebSockets.
-6. **Empirical Benchmarking & Performance Telemetry:** Measure search depth vs. runtime, node expansion, and pruning efficiency across controlled game phases (Opening, Tactical Middlegame, Positional Middlegame, Endgame).
+### Key Highlights
+- **Custom Adversarial AI Engine:** Built using depth-limited Minimax and optimized with Alpha-Beta Pruning.
+- **Empirical Mathematical Equivalence:** Proves that Alpha-Beta pruning produces identical evaluation scores to pure Minimax while dramatically reducing the search space.
+- **Modular Evaluation Function:** Centipawn material balance combined with PeSTO Piece-Square Tables (PST) adapted for midgame and endgame, piece mobility bonuses, and terminal state scoring.
+- **Move Ordering Optimization:** MVV-LVA (Most Valuable Victim - Least Valuable Attacker) capture prioritization, check generation, and promotion ordering to maximize $\beta$-cutoffs.
+- **Modern Interactive Interface:** Responsive React 19 + Tailwind CSS frontend with SVG pieces, interactive move indicators, captured pieces HUD, and live AI search telemetry.
+- **Real-Time WebSockets:** Server-authoritative state management and non-blocking asynchronous search execution.
 
 ---
 
@@ -29,7 +29,7 @@ flowchart TD
     GameMgr --> ChessBoard["python-chess Authoritative State"]
     GameMgr --> AIEngine["AI Search & Decision Engine"]
     
-    subgraph "AI Search Engine"
+    subgraph "Custom AI Search Engine"
         AIEngine --> MoveOrdering["Move Ordering (MVV-LVA, Checks, Promos)"]
         AIEngine --> Minimax["Pure Minimax Search"]
         AIEngine --> AlphaBeta["Alpha-Beta Pruning Search"]
@@ -54,13 +54,14 @@ flowchart TD
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Backend Framework** | Python 3.11 + FastAPI + Uvicorn | High-performance asynchronous API & WebSocket server |
-| **Chess Engine Rules** | `python-chess` (v1.11+) | Authoritative rule handling, legal move generation, FEN/SAN |
-| **AI Algorithms** | Custom Python Engine | Depth-limited Minimax, Alpha-Beta Pruning, Move Ordering, Heuristics |
-| **Real-Time Transport** | WebSockets (`websockets`) | Bi-directional low-latency move and telemetry streaming |
-| **Frontend UI** | React 19 + Tailwind CSS + Vite | Responsive chessboard, SVG pieces, HUD, telemetry panel |
+| **AI Engine** | Custom Python 3.11 Algorithms | Depth-limited Minimax, Alpha-Beta Pruning, Move Ordering, Heuristics |
+| **Chess Rules & State** | `python-chess` (v1.11+) | Legal move generation, board representation, special moves, FEN/SAN |
+| **Backend API** | FastAPI + Uvicorn | Asynchronous REST endpoints & persistent WebSocket server |
+| **Real-Time Transport** | WebSockets (`websockets`) | Low-latency bi-directional move streaming and search telemetry |
+| **Frontend UI** | React 19 + Tailwind CSS + Vite | Interactive SVG chessboard, legal move indicators, HUD, settings |
 | **Benchmarking & Analysis** | Pandas, NumPy, Matplotlib | Quantitative metric collection and publication-quality plots |
-| **Testing Suite** | Pytest (23 unit & integration tests) | Comprehensive verification of rules, AI math, and WebSocket protocols |
+| **Testing Suite** | Pytest (23 unit & integration tests) | Comprehensive verification of chess rules, AI math, and protocols |
+| **Deployment** | Render / Docker / Uvicorn | Single-service unified cloud deployment |
 
 ---
 
@@ -76,7 +77,7 @@ $$V(s) = \begin{cases}
 \end{cases}$$
 
 ### B. Alpha-Beta Pruning
-Alpha-Beta pruning maintains two bounds during the depth-first traversal:
+Alpha-Beta pruning maintains two bounds during depth-first traversal:
 - $\alpha$: The highest score the maximizing player is guaranteed so far.
 - $\beta$: The lowest score the minimizing player is guaranteed so far.
 
@@ -90,28 +91,28 @@ Evaluations are computed in centipawns ($100\text{ cp} = 1\text{ pawn}$) from Wh
 $$\text{Eval}(s) = \sum \text{Material} + \sum \text{PieceSquareTable} + \text{MobilityBonus} + \text{TerminalBonus}$$
 
 - **Material Values:** $P = 100, N = 320, B = 330, R = 500, Q = 900, K = 20,000$.
-- **Piece-Square Tables (PST):** Distinct positional weight matrices for midgame and endgame (e.g., King safety in midgame vs. King centralization in endgame).
+- **Piece-Square Tables (PST):** Position-dependent tables rewarding centralization, development, open files for rooks, and king safety in the midgame vs. active king centralization in the endgame.
 - **Mobility:** $2\text{ cp}$ per legal move available to the active player.
 - **Terminal States:** Checkmate $= +100,000 - \text{ply}$ (White win) or $-100,000 + \text{ply}$ (Black win); Stalemate / Draws $= 0\text{ cp}$.
 
 ### D. Move Ordering Heuristics
-Alpha-Beta efficiency depends heavily on exploring optimal moves early. We order moves via:
+Alpha-Beta efficiency depends heavily on exploring optimal moves early. Moves are ordered by:
 1. **Captures (MVV-LVA):** $\text{Priority} = 10,000 + 10 \times \text{VictimValue} - \text{AttackerValue}$.
 2. **Promotions:** $+8,000 + \text{PromotedPieceValue}$.
-3. **Checks:** $+5,000$ if the move gives check to the enemy King.
+3. **Checks:** $+5,000$ if the move delivers check.
 4. **Positional Delta:** Net improvement in Piece-Square Table value.
 
 ---
 
 ## 5. Experimental Benchmark Results
 
-Experiments were conducted across 4 controlled positions:
-1. **Opening:** Standard starting chess position (`rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`).
+Controlled experiments were executed across 4 distinct board scenarios:
+1. **Opening:** Standard starting chess position.
 2. **Middlegame Tactical:** Giuoco Piano tactical position with open diagonals and pin opportunities.
 3. **Middlegame Positional:** Sicilian Dragon structure with complex pawn formations.
 4. **Endgame:** King + Rook vs. King + Pawns.
 
-### Empirical Measurements Summary (Depth 3)
+### Empirical Measurements (Depth 3)
 
 | Position | Algorithm | Runtime (ms) | Nodes Expanded | Leaf Evaluations | Pruned Branches | Best Move | Eval (cp) |
 |---|---|---|---|---|---|---|---|
@@ -128,10 +129,10 @@ Experiments were conducted across 4 controlled positions:
 | **Endgame** | Alpha-Beta | 75.69 | 76 | 951 | 31 | `e3d4` | +510 |
 | **Endgame** | Alpha-Beta (Ordered) | 27.12 | 35 | 294 | 17 | `e3d4` | +510 |
 
-### Key Experimental Findings
-- **Mathematical Equivalence:** In 100% of cases, Minimax, Alpha-Beta, and Ordered Alpha-Beta arrived at the exact same evaluation score and identical best moves.
-- **Search Space Reduction:** Alpha-Beta reduced leaf evaluations by **$85.8\%$ to $91.0\%$** over unpruned Minimax.
-- **Impact of Move Ordering:** Adding MVV-LVA move ordering reduced leaf evaluations by an additional **$36.5\%$ to $85.9\%$**, yielding an overall node reduction of **up to $97.2\%$** relative to pure Minimax in complex middlegame positions.
+### Key Takeaways
+- **Mathematical Equivalence:** Minimax, Alpha-Beta, and Ordered Alpha-Beta arrive at the exact same evaluation score and identical best moves.
+- **Search Space Reduction:** Alpha-Beta reduces leaf evaluations by **$85.8\%$ to $91.0\%$** over unpruned Minimax.
+- **Move Ordering Impact:** Adding MVV-LVA move ordering cuts leaf evaluations by an additional **$36.5\%$ to $85.9\%$**, yielding an overall node reduction of **up to $97.2\%$** relative to pure Minimax.
 
 ---
 
@@ -179,25 +180,26 @@ Experiments were conducted across 4 controlled positions:
 │   ├── test_api_websocket.py   # WebSocket protocol & REST integration tests
 │   ├── test_benchmarks.py      # Benchmark runner & metric tests
 │   └── test_chess_rules.py     # python-chess authoritative rules & special moves
+├── render.yaml                 # One-click Render cloud deployment configuration
 ├── requirements.txt            # Python dependencies manifest
 └── README.md
 ```
 
 ---
 
-## 7. Prerequisites & Installation
+## 7. Local Setup & Execution
 
 ### Prerequisites
 - **Python:** 3.11 or higher
-- **Node.js:** v18 or higher (v24 tested)
+- **Node.js:** v18 or higher
 - **Git**
 
 ### Installation
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd "Chess Game"
+   git clone https://github.com/nishant7002/chess-ai-game.git
+   cd chess-ai-game
    ```
 
 2. **Install Python backend dependencies:**
@@ -213,77 +215,82 @@ Experiments were conducted across 4 controlled positions:
    cd ..
    ```
 
----
+### Running Locally
 
-## 8. Running the Application
-
-### Option 1: Unified Production Mode (FastAPI serves built React frontend)
-Run the FastAPI application from the project root:
+#### Unified Mode (FastAPI serves built React frontend on port 8000)
 ```bash
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
-Open your browser and navigate to:
-**`http://localhost:8000`**
+Open **`http://localhost:8000`** in your browser.
 
-### Option 2: Development Mode (Vite Hot-Reloading + FastAPI Backend)
-1. **Terminal 1 (Backend):**
-   ```bash
-   python -m uvicorn backend.main:app --port 8000 --reload
-   ```
-2. **Terminal 2 (Frontend):**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-Open your browser at `http://localhost:5173`.
+#### Development Mode (Vite Hot-Reloading)
+- **Terminal 1 (Backend):**
+  ```bash
+  python -m uvicorn backend.main:app --port 8000 --reload
+  ```
+- **Terminal 2 (Frontend):**
+  ```bash
+  cd frontend
+  npm run dev
+  ```
+Open **`http://localhost:5173`** in your browser.
 
 ---
 
-## 9. Running Automated Tests
+## 8. Live Deployment on Render (Step-by-Step)
 
-Run the complete 23-test Pytest test suite:
+Because this application uses a Python backend with persistent WebSockets and a pre-compiled React frontend, **[Render.com](https://render.com)** hosts both the backend and frontend together as a single unified service on its free tier.
+
+### Option 1: Automatic Blueprint (Easiest)
+This repository includes a [`render.yaml`](./render.yaml) file.
+1. Push your repository to GitHub.
+2. Go to your [Render Dashboard](https://dashboard.render.com/).
+3. Click **New +** → **Blueprint**.
+4. Connect your GitHub repository. Render will automatically read `render.yaml` and configure the build and start commands.
+5. Click **Apply**. Render will deploy your service and provide a permanent public link: `https://<your-service-name>.onrender.com`.
+
+### Option 2: Manual Web Service Setup
+1. In the [Render Dashboard](https://dashboard.render.com/), click **New +** → **Web Service**.
+2. Connect your GitHub repository (`nishant7002/<repo-name>`).
+3. Configure the service settings:
+   - **Environment:** `Python 3`
+   - **Branch:** `main`
+   - **Region:** Any (e.g. *Singapore* or *Oregon*)
+   - **Build Command:**
+     ```bash
+     pip install -r requirements.txt
+     ```
+   - **Start Command:**
+     ```bash
+     python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+     ```
+   - **Plan:** **Free**
+4. Click **Deploy Web Service**.
+5. Once deployment completes, your public link is live and accessible from any smartphone, tablet, or PC!
+
+---
+
+## 9. Running Tests & Benchmarks
+
+### Automated Test Suite (Pytest)
+Run the 23 unit and integration tests:
 ```bash
 python -m pytest tests/ -v
 ```
 
-### Test Coverage Highlights:
-- **`tests/test_chess_rules.py`**: Castling (kingside/queenside), en passant, pawn promotion, Scholar's mate, stalemate, 50-move rule, insufficient material, and illegal move rejection.
-- **`tests/test_ai_algorithms.py`**: Verifies that Random and Greedy agents return legal moves; proves that Minimax and Alpha-Beta return identical minimax values on identical positions; verifies that Alpha-Beta expands fewer nodes than Minimax.
-- **`tests/test_api_websocket.py`**: Verifies full WebSocket lifecycle (`start_game`, `make_move`, `ai_thinking`, `ai_move`, `get_legal_moves`, out-of-turn rejection, playing as Black).
-- **`tests/test_benchmarks.py`**: Verifies automated metric collection and DataFrame integrity.
-
----
-
-## 10. Running the Experimental Benchmarks
-
-Run the standalone CLI benchmarking script to reproduce the experimental results:
+### Algorithmic Benchmarks CLI
+Run the benchmark suite to regenerate CSV metrics and Matplotlib comparison plots:
 ```bash
 python backend/benchmark.py
 ```
-This script will:
-1. Execute searches across all 4 controlled positions for depths 1, 2, and 3.
-2. Output real-time terminal progress.
-3. Save structured results to `benchmark_reports/benchmark_results.csv`.
-4. Render 4 publication-quality plots in `benchmark_reports/`:
-   - `benchmark_depth_vs_runtime.png`
-   - `benchmark_depth_vs_nodes.png`
-   - `benchmark_minimax_vs_alphabeta.png`
-   - `benchmark_pruning_efficiency.png`
+Output files are saved directly in `benchmark_reports/`.
 
 ---
 
-## 11. Known Limitations & Academic Failure Cases
+## 10. References & Acknowledgments
 
-1. **Horizon Effect:** Without quiescent search (captures-only extension), depth-limited search may overlook tactical blunders occurring immediately past the depth boundary (e.g., stopping on depth 3 right before an exchange resolves).
-2. **Exponential Branching Factor:** In chess, the average branching factor is $b \approx 35$. At depth 4 and 5, pure Minimax becomes computationally prohibitive without iterative deepening and transposition tables ($35^4 \approx 1.5 \times 10^6$ nodes).
-3. **Static Positional Approximations:** While PeSTO Piece-Square Tables reward centralization and development, they do not account for dynamic pawn chains, outposts, or complex king pawn shields in asymmetric endgames.
-
----
-
-## 12. References
-
-1. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach* (4th ed.). Pearson. (Chapters on Adversarial Search and Games).
+1. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach* (4th ed.). Pearson.
 2. Knuth, D. E., & Moore, R. W. (1975). An analysis of alpha-beta pruning. *Artificial Intelligence*, 6(4), 293–326.
 3. Shannon, C. E. (1950). Programming a computer for playing chess. *Philosophical Magazine*, 41(314), 256–275.
 4. Fiekas, T. (2013). *PeSTO's Piece-Square Tables*. Chess Programming Wiki.
-5. Python Chess Documentation. (2024). *python-chess: A pure Python chess library*. Retrieved from https://python-chess.readthedocs.io/
+5. Python Chess Documentation. (2024). *python-chess: A pure Python chess library*. https://python-chess.readthedocs.io/

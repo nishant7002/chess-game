@@ -25,7 +25,7 @@ export const AcademicPanel = ({ metrics, lastEval, isThinking }) => {
       >
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-slate-200">AI Search Telemetry (Academic Metrics)</h3>
+          <h3 className="text-sm font-semibold text-slate-200">AI Search Telemetry & Metrics</h3>
         </div>
         <button className="text-slate-400 hover:text-white transition-colors">
           {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

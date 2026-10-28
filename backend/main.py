@@ -18,18 +18,27 @@ from backend.schemas import GameConfig, MoveRequest
 
 app = FastAPI(
     title="Human vs AI Chess Engine API",
-    description="Foundations of Artificial Intelligence (FAI) Course Project - Minimax and Alpha-Beta Pruning",
+    description="Self-Learning Chess AI Engine - Depth-Limited Minimax and Alpha-Beta Pruning",
     version="1.0.0"
 )
 
-# Enable CORS for local development
+# Enable CORS securely
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Inject standard security headers
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 session_manager = SessionManager()
 
@@ -44,10 +53,22 @@ async def health_check():
 @app.websocket("/ws")
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str = None):
-    if not session_id:
+    # Validate or generate session ID
+    if session_id:
+        clean_id = session_id.strip()
+        if not clean_id.replace("-", "").replace("_", "").isalnum() or len(clean_id) > 64:
+            await websocket.close(code=1008, reason="Invalid session ID format")
+            return
+        if clean_id in session_manager.active_sessions:
+            await websocket.close(code=1008, reason="Session ID already in use")
+            return
+        session_id = clean_id
+    else:
         session_id = str(uuid.uuid4())
 
-    await session_manager.register(session_id, websocket)
+    registered = await session_manager.register(session_id, websocket)
+    if not registered:
+        return
 
     # Send initial game state
     game = session_manager.get_game(session_id)
@@ -61,6 +82,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str = None):
     try:
         while True:
             raw_text = await websocket.receive_text()
+
+            # Prevent oversized memory allocation DoS
+            if len(raw_text) > 32768:
+                await session_manager.send_json(session_id, {
+                    "type": "error",
+                    "message": "Payload exceeds maximum allowed size"
+                })
+                continue
+
             try:
                 msg = json.loads(raw_text)
             except json.JSONDecodeError:
@@ -70,14 +100,30 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str = None):
                 })
                 continue
 
-            msg_type = msg.get("type", "").lower()
+            # Ensure payload is a dictionary
+            if not isinstance(msg, dict):
+                await session_manager.send_json(session_id, {
+                    "type": "error",
+                    "message": "Message payload must be a JSON object"
+                })
+                continue
+
+            msg_type = str(msg.get("type", "")).lower()
 
             if msg_type == "start_game":
                 human_color = msg.get("human_color", "white")
-                algorithm = msg.get("algorithm", "alpha_beta")
+                algorithm = msg.get("algorithm", "alpha_beta_ordered")
                 depth = int(msg.get("depth", 3))
                 await session_manager.handle_start_game(
                     session_id, human_color=human_color, algorithm=algorithm, depth=depth
+                )
+
+            elif msg_type == "update_settings" or msg_type == "update_config":
+                algo = msg.get("algorithm")
+                depth_val = msg.get("depth")
+                depth_int = int(depth_val) if depth_val is not None else None
+                await session_manager.handle_update_settings(
+                    session_id, algorithm=algo, depth=depth_int
                 )
 
             elif msg_type == "make_move":
@@ -127,3 +173,8 @@ if os.path.exists(frontend_dist):
         if os.path.exists(index_file):
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Frontend build not found")
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=port, reload=False)

@@ -15,9 +15,15 @@ import {
   WifiOff
 } from 'lucide-react';
 
-const WS_URL = window.location.protocol === 'https:'
-  ? `wss://${window.location.host}/ws`
-  : `ws://${window.location.hostname}:8000/ws`;
+const BACKEND_URL = import.meta.env.VITE_WS_BACKEND_URL;
+
+const WS_URL = BACKEND_URL
+  ? BACKEND_URL
+  : (window.location.protocol === 'https:'
+      ? `wss://${window.location.host}/ws`
+      : (window.location.port === '5173'
+          ? `ws://${window.location.hostname}:8000/ws`
+          : `ws://${window.location.host}/ws`));
 
 export default function App() {
   // Game Configuration
@@ -43,6 +49,7 @@ export default function App() {
   });
 
   // UI & Interaction States
+  const [isGameStarted, setIsGameStarted] = useState(false);
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [legalDestinations, setLegalDestinations] = useState([]);
   const [pendingPromotion, setPendingPromotion] = useState(null); // { from, to }
@@ -130,8 +137,43 @@ export default function App() {
     }
   };
 
-  // Handle Starting a New Game
+  // Handle Color Selection (configures player color before starting)
+  const handleColorChange = (newColor) => {
+    setHumanColor(newColor);
+    setSelectedSquare(null);
+    setLegalDestinations([]);
+    // Immediately orient the board for the chosen color
+    setGameState(prev => ({
+      ...prev,
+      human_color: newColor,
+      ai_color: newColor === 'white' ? 'black' : 'white',
+      is_human_turn: newColor === 'white'
+    }));
+  };
+
+  // Handle Algorithm Strategy Selection
+  const handleAlgorithmChange = (newAlgo) => {
+    setAlgorithm(newAlgo);
+    sendWsMessage({
+      type: 'update_settings',
+      algorithm: newAlgo,
+      depth: depth
+    });
+  };
+
+  // Handle Search Depth Change
+  const handleDepthChange = (newDepth) => {
+    setDepth(newDepth);
+    sendWsMessage({
+      type: 'update_settings',
+      algorithm: algorithm,
+      depth: newDepth
+    });
+  };
+
+  // Handle Starting the Game after options have been chosen
   const handleStartGame = () => {
+    setIsGameStarted(true);
     setSelectedSquare(null);
     setLegalDestinations([]);
     setErrorMessage(null);
@@ -143,18 +185,51 @@ export default function App() {
     });
   };
 
-  // Handle Restarting Game
+  // Handle Restarting Game with current options
   const handleRestartGame = () => {
+    setIsGameStarted(true);
     setSelectedSquare(null);
     setLegalDestinations([]);
     setErrorMessage(null);
     sendWsMessage({
-      type: 'restart_game'
+      type: 'start_game',
+      human_color: humanColor,
+      algorithm: algorithm,
+      depth: depth
+    });
+  };
+
+  // Handle New Game (returns to setup mode so user can re-choose options)
+  const handleNewGame = () => {
+    setIsGameStarted(false);
+    setSelectedSquare(null);
+    setLegalDestinations([]);
+    setErrorMessage(null);
+    setGameState({
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      turn: 'white',
+      human_color: humanColor,
+      ai_color: humanColor === 'white' ? 'black' : 'white',
+      is_human_turn: humanColor === 'white',
+      is_game_over: false,
+      in_check: false,
+      result: 'Choose options and click Start Game',
+      winner: null,
+      last_move: null,
+      move_history: [],
+      captured_pieces: { white: [], black: [] },
+      material: { white: 39, black: 39, diff: 0 }
     });
   };
 
   // Handle Square Selection and Moves
   const handleSquareClick = (square, piece) => {
+    if (!isGameStarted) {
+      setErrorMessage("Please click 'Start Game' to begin playing!");
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
     if (gameState.is_game_over || isThinking || !gameState.is_human_turn) {
       return;
     }
@@ -236,7 +311,7 @@ export default function App() {
                 </span>
               </h1>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Foundations of Artificial Intelligence (FAI) Course Project
+                Self-Learning Chess AI Engine Project
               </p>
             </div>
           </div>
@@ -310,7 +385,7 @@ export default function App() {
               inCheck={gameState.in_check}
               turn={gameState.turn}
               onSquareClick={handleSquareClick}
-              disabled={isGameOver || isThinking || !isHumanTurn}
+              disabled={!isGameStarted || isGameOver || isThinking || !isHumanTurn}
             />
 
             {/* Bottom Player Status: Human */}
@@ -327,7 +402,9 @@ export default function App() {
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-400">
-                    {isHumanTurn && !isGameOver ? (
+                    {!isGameStarted ? (
+                      <span className="text-amber-400 font-medium">Ready — Choose options & click Start Game</span>
+                    ) : isHumanTurn && !isGameOver ? (
                       <span className="text-emerald-400 font-medium">Your turn to move</span>
                     ) : isGameOver ? (
                       <span className="text-slate-400">Game Over</span>
@@ -361,16 +438,17 @@ export default function App() {
             {/* Game Controls */}
             <GameControls
               humanColor={humanColor}
-              setHumanColor={setHumanColor}
+              onColorChange={handleColorChange}
               algorithm={algorithm}
-              setAlgorithm={setAlgorithm}
+              onAlgorithmChange={handleAlgorithmChange}
               depth={depth}
-              setDepth={setDepth}
+              onDepthChange={handleDepthChange}
+              isGameStarted={isGameStarted}
               onStartGame={handleStartGame}
+              onNewGame={handleNewGame}
               onRestartGame={handleRestartGame}
-              isGameInProgress={gameState.move_history.length > 0 && !isGameOver}
               isThinking={isThinking}
-              gameStatus={gameState.result}
+              _gameStatus={gameState.result}
             />
 
             {/* Move History */}
@@ -411,7 +489,7 @@ export default function App() {
             <div className="flex gap-3 justify-center pt-2">
               <button
                 type="button"
-                onClick={handleStartGame}
+                onClick={handleNewGame}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-md transition-all"
               >
                 Play Again
@@ -423,7 +501,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 py-3 px-4 text-center text-xs text-slate-500 mt-auto">
-        Foundations of Artificial Intelligence (FAI) Course Project • Custom Minimax & Alpha-Beta Engine in Python
+        Self-Learning Chess AI Project • Custom Minimax & Alpha-Beta Engine in Python
       </footer>
     </div>
   );

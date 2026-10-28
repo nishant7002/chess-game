@@ -18,6 +18,9 @@ def test_health_endpoint(client):
     data = response.json()
     assert data["status"] == "healthy"
     assert "alpha_beta" in data["algorithms"]
+    # Verify security headers
+    assert response.headers.get("X-Content-Type-Options") == "nosniff"
+    assert response.headers.get("X-Frame-Options") == "SAMEORIGIN"
 
 def test_websocket_connection_and_initial_state(client):
     with client.websocket_connect("/ws/test-session-1") as ws:
@@ -141,3 +144,18 @@ def test_websocket_play_as_black_ai_starts(client):
         assert post_move["type"] == "game_state"
         assert post_move["state"]["turn"] == "black"
         assert post_move["state"]["is_human_turn"] is True
+
+def test_websocket_non_dict_payload_security(client):
+    with client.websocket_connect("/ws/test-session-sec-1") as ws:
+        _ = ws.receive_text()
+
+        # Send an array instead of a dict
+        ws.send_text(json.dumps([1, 2, 3]))
+        err_msg = json.loads(ws.receive_text())
+        assert err_msg["type"] == "error"
+        assert "JSON object" in err_msg["message"]
+
+        # Verify socket connection remains alive and functional
+        ws.send_text(json.dumps({"type": "get_legal_moves", "square": "e2"}))
+        resp = json.loads(ws.receive_text())
+        assert resp["type"] == "legal_moves"

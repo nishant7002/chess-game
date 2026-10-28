@@ -6,6 +6,7 @@ Ensures server-authoritative validation and non-blocking search execution.
 
 import json
 import asyncio
+import time
 from typing import Dict, Any, Optional
 from fastapi import WebSocket
 import chess
@@ -13,17 +14,26 @@ from backend.game_state import GameState
 from backend.ai.engine import compute_ai_move
 
 class SessionManager:
+    MAX_ACTIVE_SESSIONS = 250
+
     def __init__(self):
-        # Maps connection_id to (WebSocket, GameState)
+        # Maps connection_id to session state dict
         self.active_sessions: Dict[str, Dict[str, Any]] = {}
 
-    async def register(self, session_id: str, websocket: WebSocket):
+    async def register(self, session_id: str, websocket: WebSocket) -> bool:
+        """Registers a session. Rejects if server capacity reached."""
+        if len(self.active_sessions) >= self.MAX_ACTIVE_SESSIONS:
+            await websocket.close(code=1013, reason="Server busy, try again later")
+            return False
+
         await websocket.accept()
         self.active_sessions[session_id] = {
             "ws": websocket,
             "game": GameState(),
-            "ai_task": None
+            "ai_task": None,
+            "last_activity": time.time()
         }
+        return True
 
     def unregister(self, session_id: str):
         if session_id in self.active_sessions:
@@ -34,7 +44,10 @@ class SessionManager:
 
     def get_game(self, session_id: str) -> Optional[GameState]:
         session = self.active_sessions.get(session_id)
-        return session["game"] if session else None
+        if session:
+            session["last_activity"] = time.time()
+            return session["game"]
+        return None
 
     async def send_json(self, session_id: str, message: Dict[str, Any]):
         session = self.active_sessions.get(session_id)
@@ -45,11 +58,18 @@ class SessionManager:
                 pass
 
     async def handle_start_game(
-        self, session_id: str, human_color: str = "white", algorithm: str = "alpha_beta", depth: int = 3
+        self, session_id: str, human_color: str = "white", algorithm: str = "alpha_beta_ordered", depth: int = 3
     ):
         session = self.active_sessions.get(session_id)
         if not session:
             return
+
+        session["last_activity"] = time.time()
+
+        # Cancel any pending AI search on reset
+        existing_task = session.get("ai_task")
+        if existing_task and not existing_task.done():
+            existing_task.cancel()
 
         game: GameState = session["game"]
         game.reset(human_color=human_color, algorithm=algorithm, depth=depth)
@@ -63,6 +83,24 @@ class SessionManager:
         # If human chose Black, AI (White) makes the opening move!
         if game.human_color == "black" and not game.board.is_game_over():
             await self.trigger_ai_move(session_id)
+
+    async def handle_update_settings(
+        self, session_id: str, algorithm: Optional[str] = None, depth: Optional[int] = None
+    ):
+        session = self.active_sessions.get(session_id)
+        if not session:
+            return
+
+        game: GameState = session["game"]
+        if algorithm:
+            game.algorithm = algorithm.lower().strip()
+        if depth is not None:
+            game.depth = max(1, min(int(depth), 5))
+
+        await self.send_json(session_id, {
+            "type": "game_state",
+            "state": game.to_dict()
+        })
 
     async def handle_make_move(self, session_id: str, move_str: str):
         session = self.active_sessions.get(session_id)
@@ -127,9 +165,21 @@ class SessionManager:
         board_copy = game.board.copy()
         algo = game.algorithm
         depth = game.depth
+        expected_version = game.game_version
+        expected_move_count = len(game.move_history)
 
         try:
-            ai_result = await asyncio.to_thread(compute_ai_move, board_copy, algo, depth)
+            # Enforce 8.0s timeout to protect server threads against compute DoS
+            ai_result = await asyncio.wait_for(
+                asyncio.to_thread(compute_ai_move, board_copy, algo, depth),
+                timeout=8.0
+            )
+        except asyncio.TimeoutError:
+            # Fallback to fast 1-ply greedy move if computation exceeds 8 seconds
+            from backend.ai.baseline import GreedyAgent
+            ai_result = GreedyAgent.select_move(board_copy)
+            if "metrics" in ai_result:
+                ai_result["metrics"]["timeout"] = True
         except Exception as e:
             await self.send_json(session_id, {
                 "type": "error",
@@ -142,6 +192,10 @@ class SessionManager:
             "type": "ai_thinking",
             "thinking": False
         })
+
+        # Race condition defense: discard move if game was reset or altered while search was running
+        if game.game_version != expected_version or len(game.move_history) != expected_move_count:
+            return
 
         ai_move = ai_result.get("move")
         if ai_move:
