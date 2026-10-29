@@ -28,6 +28,31 @@ const WS_URL = BACKEND_URL
           ? `ws://${window.location.hostname}:8000/ws`
           : `ws://${window.location.host}/ws`));
 
+// Helper to determine the piece character occupying a square from the FEN string
+const getPieceAtSquare = (fen, square) => {
+  if (!fen || !square || square.length !== 2) return null;
+  const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
+  const rank = parseInt(square[1], 10);
+  const r = 8 - rank;
+  const f = file;
+  if (r < 0 || r > 7 || f < 0 || f > 7) return null;
+
+  const boardPart = fen.split(' ')[0];
+  const rows = boardPart.split('/');
+  if (!rows[r]) return null;
+
+  let col = 0;
+  for (const ch of rows[r]) {
+    if (ch >= '1' && ch <= '8') {
+      col += parseInt(ch, 10);
+    } else {
+      if (col === f) return ch;
+      col++;
+    }
+  }
+  return null;
+};
+
 export default function App() {
   // Game Configuration
   const [humanColor, setHumanColor] = useState('white');
@@ -54,6 +79,7 @@ export default function App() {
   // UI & Interaction States
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [selectedSquare, setSelectedSquare] = useState(null);
+  const [selectedPiece, setSelectedPiece] = useState(null);
   const [legalDestinations, setLegalDestinations] = useState([]);
   const [pendingPromotion, setPendingPromotion] = useState(null); // { from, to }
   const [isThinking, setIsThinking] = useState(false);
@@ -168,6 +194,7 @@ export default function App() {
   const handleColorChange = (newColor) => {
     setHumanColor(newColor);
     setSelectedSquare(null);
+    setSelectedPiece(null);
     setLegalDestinations([]);
     // Immediately orient the board for the chosen color
     setGameState(prev => ({
@@ -205,6 +232,7 @@ export default function App() {
     setShowGameOverModal(false);
     if (gameOverTimeoutRef.current) clearTimeout(gameOverTimeoutRef.current);
     setSelectedSquare(null);
+    setSelectedPiece(null);
     setLegalDestinations([]);
     setPendingPromotion(null);
     setErrorMessage(null);
@@ -271,11 +299,14 @@ export default function App() {
 
     // 1. If clicking a legal destination for an already selected piece
     if (selectedSquare && legalDestinations.includes(square)) {
-      // Check for pawn promotion: Pawn moving to rank 8 (for White) or rank 1 (for Black)
-      const isWhitePawn = gameState.human_color === 'white' && selectedSquare[1] === '7' && square[1] === '8';
-      const isBlackPawn = gameState.human_color === 'black' && selectedSquare[1] === '2' && square[1] === '1';
+      // Check for pawn promotion: ONLY if the selected piece is actually a Pawn ('P' or 'p')
+      const movingPiece = selectedPiece || getPieceAtSquare(gameState.fen, selectedSquare);
+      const isPawn = movingPiece && movingPiece.toUpperCase() === 'P';
 
-      if (isWhitePawn || isBlackPawn) {
+      const isWhitePawnPromo = isPawn && gameState.human_color === 'white' && selectedSquare[1] === '7' && square[1] === '8';
+      const isBlackPawnPromo = isPawn && gameState.human_color === 'black' && selectedSquare[1] === '2' && square[1] === '1';
+
+      if (isWhitePawnPromo || isBlackPawnPromo) {
         setPendingPromotion({ from: selectedSquare, to: square });
         return;
       }
@@ -288,6 +319,7 @@ export default function App() {
       });
 
       setSelectedSquare(null);
+      setSelectedPiece(null);
       setLegalDestinations([]);
       return;
     }
@@ -300,6 +332,7 @@ export default function App() {
 
       if (isPieceHuman) {
         setSelectedSquare(square);
+        setSelectedPiece(piece);
         sendWsMessage({
           type: 'get_legal_moves',
           square: square
@@ -310,6 +343,7 @@ export default function App() {
 
     // 3. Otherwise deselect
     setSelectedSquare(null);
+    setSelectedPiece(null);
     setLegalDestinations([]);
   };
 
@@ -323,6 +357,7 @@ export default function App() {
     });
     setPendingPromotion(null);
     setSelectedSquare(null);
+    setSelectedPiece(null);
     setLegalDestinations([]);
   };
 
