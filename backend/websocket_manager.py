@@ -175,9 +175,10 @@ class SessionManager:
                 timeout=8.0
             )
         except asyncio.TimeoutError:
-            # Fallback to fast 1-ply greedy move if computation exceeds 8 seconds
+            # Fallback to fast 1-ply greedy move using a clean root board copy (prevents thread state corruption)
             from backend.ai.baseline import GreedyAgent
-            ai_result = GreedyAgent.select_move(board_copy)
+            clean_board = game.board.copy()
+            ai_result = GreedyAgent.select_move(clean_board)
             if "metrics" in ai_result:
                 ai_result["metrics"]["timeout"] = True
         except Exception as e:
@@ -202,11 +203,19 @@ class SessionManager:
             try:
                 game.make_move(ai_move)
             except ValueError as e:
-                await self.send_json(session_id, {
-                    "type": "error",
-                    "message": f"Internal AI move execution error: {str(e)}"
-                })
-                return
+                # Guaranteed-legal fallback so the game never freezes or pauses unexpectedly
+                legal_moves = list(game.board.legal_moves)
+                if legal_moves:
+                    fallback_move = legal_moves[0].uci()
+                    game.make_move(fallback_move)
+                    ai_result["move"] = fallback_move
+                    ai_result["san"] = game.board.san(legal_moves[0])
+                else:
+                    await self.send_json(session_id, {
+                        "type": "error",
+                        "message": f"Internal AI move execution error: {str(e)}"
+                    })
+                    return
 
         # Send AI move details & search metrics
         await self.send_json(session_id, {

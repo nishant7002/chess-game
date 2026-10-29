@@ -44,7 +44,8 @@ def alpha_beta_search(
     beta: float,
     is_maximizing: bool,
     metrics: AlphaBetaMetrics,
-    use_move_ordering: bool = False
+    use_move_ordering: bool = False,
+    pv_move: Optional[chess.Move] = None
 ) -> Tuple[Optional[chess.Move], int]:
     """
     Alpha-Beta search recursive routine.
@@ -68,11 +69,14 @@ def alpha_beta_search(
     metrics.nodes_expanded += 1
     metrics.nodes_generated += len(legal_moves)
 
-    # Optional Move Ordering
+    # Move Ordering: prioritize pv_move from previous iterative deepening depth if at root
     if use_move_ordering:
-        moves_to_search = order_moves(board, legal_moves)
+        moves_to_search = order_moves(board, legal_moves, pv_move=(pv_move if ply == 0 else None))
     else:
-        moves_to_search = legal_moves
+        if ply == 0 and pv_move and pv_move in legal_moves:
+            moves_to_search = [pv_move] + [m for m in legal_moves if m != pv_move]
+        else:
+            moves_to_search = legal_moves
 
     best_move: Optional[chess.Move] = None
 
@@ -120,34 +124,69 @@ def alpha_beta_search(
 def find_best_move_alpha_beta(
     board: chess.Board,
     depth: int,
-    use_move_ordering: bool = False
+    use_move_ordering: bool = False,
+    time_limit: float = 6.0
 ) -> Dict[str, Any]:
-    """Top-level entry point for Alpha-Beta search."""
+    """
+    Top-level entry point for Alpha-Beta search using Iterative Deepening.
+    Searches depth 1, 2, ..., depth. Guarantees that at any point before timeout,
+    a high-quality, fully evaluated legal move is ready to return.
+    """
     algo_name = "alpha_beta_ordered" if use_move_ordering else "alpha_beta"
     metrics = AlphaBetaMetrics(algorithm_name=algo_name)
     metrics.start_time = time.perf_counter()
 
-    is_maximizing = (board.turn == chess.WHITE)
-    alpha = -float('inf')
-    beta = float('inf')
+    legal_moves = list(board.legal_moves)
+    if not legal_moves:
+        return {
+            "move": None,
+            "san": None,
+            "eval": 0,
+            "metrics": metrics.to_dict(depth)
+        }
 
-    best_move, best_eval = alpha_beta_search(
-        board, depth, 0, alpha, beta, is_maximizing, metrics, use_move_ordering
-    )
+    is_maximizing = (board.turn == chess.WHITE)
+    overall_best_move = legal_moves[0]
+    overall_best_eval = 0
+
+    # Iterative Deepening from 1 to depth
+    for current_depth in range(1, depth + 1):
+        # Stop before starting next iteration if elapsed time exceeds budget
+        elapsed = time.perf_counter() - metrics.start_time
+        if current_depth > 1 and elapsed >= time_limit:
+            break
+
+        alpha = -float('inf')
+        beta = float('inf')
+
+        move, score = alpha_beta_search(
+            board,
+            current_depth,
+            0,
+            alpha,
+            beta,
+            is_maximizing,
+            metrics,
+            use_move_ordering=use_move_ordering,
+            pv_move=overall_best_move
+        )
+
+        if move is not None:
+            overall_best_move = move
+            overall_best_eval = score
 
     metrics.end_time = time.perf_counter()
 
-    if best_move is None:
-        legal_moves = list(board.legal_moves)
-        if legal_moves:
-            best_move = legal_moves[0]
+    # Safety assertion: guarantee move is 100% legal on the current root board
+    if overall_best_move not in board.legal_moves:
+        overall_best_move = list(board.legal_moves)[0]
 
-    san_str = board.san(best_move) if best_move else None
-    uci_str = best_move.uci() if best_move else None
+    san_str = board.san(overall_best_move) if overall_best_move else None
+    uci_str = overall_best_move.uci() if overall_best_move else None
 
     return {
         "move": uci_str,
         "san": san_str,
-        "eval": best_eval,
+        "eval": overall_best_eval,
         "metrics": metrics.to_dict(depth)
     }

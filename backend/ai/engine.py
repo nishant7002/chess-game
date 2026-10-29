@@ -47,7 +47,8 @@ def compute_ai_move(board: chess.Board, algorithm: str = "alpha_beta", depth: in
         safe_depth = max(1, min(depth, 4))
         return find_best_move_alpha_beta(board, safe_depth, use_move_ordering=True)
     elif algo_key == "alpha_beta":
-        safe_depth = max(1, min(depth, 4))
+        # Canonical Alpha-Beta without move ordering has O(b^d) worst-case; clamp to 3 plies for sub-second safety
+        safe_depth = max(1, min(depth, 3))
         return find_best_move_alpha_beta(board, safe_depth, use_move_ordering=False)
     else:
         # Default fallback

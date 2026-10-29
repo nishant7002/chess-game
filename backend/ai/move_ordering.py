@@ -4,7 +4,7 @@ Move Ordering heuristics to optimize Alpha-Beta pruning cutoffs.
 Explores high-potential moves (captures via MVV-LVA, promotions, checks) first.
 """
 
-from typing import List
+from typing import List, Optional
 import chess
 from backend.ai.evaluation import MATERIAL_VALUES, get_pst_value, is_endgame
 
@@ -51,7 +51,11 @@ def get_move_priority(board: chess.Board, move: chess.Move, endgame: bool) -> in
 
     return score
 
-def order_moves(board: chess.Board, moves: List[chess.Move]) -> List[chess.Move]:
-    """Sorts legal moves descending by priority score."""
+def order_moves(board: chess.Board, moves: List[chess.Move], pv_move: Optional[chess.Move] = None) -> List[chess.Move]:
+    """Sorts legal moves descending by priority score, prioritizing pv_move if provided."""
     endgame = is_endgame(board)
-    return sorted(moves, key=lambda m: get_move_priority(board, m, endgame), reverse=True)
+    sorted_moves = sorted(moves, key=lambda m: get_move_priority(board, m, endgame), reverse=True)
+    if pv_move and pv_move in sorted_moves:
+        sorted_moves.remove(pv_move)
+        sorted_moves.insert(0, pv_move)
+    return sorted_moves
