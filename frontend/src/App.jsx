@@ -452,15 +452,15 @@ export default function App() {
           <div className="order-2 lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:row-span-2 flex flex-col items-center space-y-4 w-full">
             {/* Decisive End-Game Floating Review Banner (Visible when reviewing board after game over) */}
             {isGameOver && !showGameOverModal && (
-              <div className="w-full max-w-[560px] bg-slate-900/95 border-2 border-emerald-500/60 rounded-xl p-3 shadow-xl flex items-center justify-between gap-3 animate-fade-in">
-                <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-full max-w-[560px] bg-slate-900/95 border-2 border-emerald-500/60 rounded-xl p-3 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-fade-in">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center shrink-0">
                     <Trophy className="w-4 h-4" />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{gameState.result}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-bold text-white truncate">{gameState.result}</p>
                     {lastMoveRecord && (
-                      <p className="text-[11px] text-slate-300 font-mono">
+                      <p className="text-[11px] text-slate-300 font-mono truncate">
                         Final Move:{' '}
                         <span className="text-emerald-400 font-bold">{lastMoveRecord.san || lastMoveRecord.uci}</span>
                         {' '}({lastMoveRecord.from} → {lastMoveRecord.to})
@@ -469,29 +469,29 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto sm:flex sm:items-center sm:gap-2 shrink-0 pt-1.5 sm:pt-0 border-t border-slate-800/80 sm:border-0">
                   <button
                     type="button"
                     onClick={() => setShowGameOverModal(true)}
-                    className="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+                    className="w-full sm:w-auto justify-center px-2 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-600 shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap"
                   >
-                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span>Summary</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleRestartGame}
-                    className="px-2.5 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+                    className="w-full sm:w-auto justify-center px-2 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg border border-slate-600 shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-slate-300" />
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-300 shrink-0" />
                     <span>Restart</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleNewGame}
-                    className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-sm transition-all flex items-center gap-1"
+                    className="w-full sm:w-auto justify-center px-2.5 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 whitespace-nowrap"
                   >
-                    <Play className="w-3.5 h-3.5" />
+                    <Play className="w-3.5 h-3.5 shrink-0" />
                     <span>New Game</span>
                   </button>
                 </div>
@@ -658,11 +658,11 @@ export default function App() {
               <span>Final Turn: <strong className="text-white font-mono capitalize">{gameState.turn}</strong></span>
             </div>
 
-            <div className="flex gap-2 justify-center pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowGameOverModal(false)}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-xl border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+                className="w-full justify-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-xl border border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Review Board</span>
@@ -670,7 +670,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleRestartGame}
-                className="px-3.5 py-2 bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                className="w-full justify-center px-3.5 py-2 bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Restart Game</span>
@@ -678,7 +678,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleNewGame}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                className="w-full justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
               >
                 <Play className="w-3.5 h-3.5" />
                 <span>New Game</span>
